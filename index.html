@@ -1,0 +1,1889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Air Canvas - PythosX</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+
+    <style>
+        :root {
+            --bg: #03040f;
+            --glass-bg: rgba(10, 14, 30, 0.55);
+            --glass-border: rgba(255,255,255,0.10);
+            --blur: blur(18px);
+            --accent: #00ffcc;
+            --accent2: #b060ff;
+            --font-main: 'Orbitron', monospace;
+            --font-mono: 'Space Mono', monospace;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+
+        body {
+            font-family: var(--font-main);
+            background: var(--bg);
+            color: #fff;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* ─────────────────── TELEGRAM POPUP ─────────────────── */
+        @keyframes shimmerText {
+            0%   { background-position: 0% }
+            100% { background-position: 200% }
+        }
+        @keyframes cardIn {
+            from { opacity:0; transform: scale(0.88) translateY(30px); }
+            to   { opacity:1; transform: scale(1) translateY(0); }
+        }
+        @keyframes pulseLogo {
+            0%,100% { box-shadow: 0 0 35px rgba(42,171,238,0.55), 0 0 70px rgba(42,171,238,0.15); }
+            50%     { box-shadow: 0 0 65px rgba(42,171,238,0.9),  0 0 120px rgba(42,171,238,0.35); }
+        }
+        @keyframes twinkle {
+            0%,100% { opacity: 0.08; transform: scale(1); }
+            50%     { opacity: 0.75; transform: scale(1.5); }
+        }
+        @keyframes orbitRing {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(360deg); }
+        }
+        @keyframes orbitRingRev {
+            from { transform: rotate(0deg); }
+            to   { transform: rotate(-360deg); }
+        }
+        @keyframes ripplePulse {
+            0%   { transform: scale(0.85); opacity: 0.6; }
+            50%  { transform: scale(1.12); opacity: 0.2; }
+            100% { transform: scale(0.85); opacity: 0.6; }
+        }
+        @keyframes btnRipple {
+            from { transform: scale(0); opacity: 0.5; }
+            to   { transform: scale(4);  opacity: 0; }
+        }
+        @keyframes doneIn {
+            from { opacity: 0; transform: translateY(12px) scale(0.95); }
+            to   { opacity: 1; transform: translateY(0)    scale(1); }
+        }
+        @keyframes floatParticle {
+            0%   { transform: translateY(0)   translateX(0)   scale(1);   opacity: 0.7; }
+            50%  { transform: translateY(-28px) translateX(12px) scale(1.3); opacity: 1; }
+            100% { transform: translateY(0)   translateX(0)   scale(1);   opacity: 0.7; }
+        }
+
+        #tgOverlay {
+            position: fixed; inset: 0; z-index: 9999;
+            background:
+                radial-gradient(ellipse 80% 60% at 50% 30%, rgba(80,20,140,0.55) 0%, transparent 70%),
+                radial-gradient(ellipse 60% 50% at 20% 80%, rgba(0,200,180,0.18) 0%, transparent 60%),
+                #040210;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+        }
+
+        /* Floating ambient orbs */
+        .tg-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            pointer-events: none;
+            animation: ripplePulse var(--od) ease-in-out infinite var(--odel);
+        }
+
+        /* Stars */
+        .stars { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+        .star {
+            position: absolute; border-radius: 50%; background: white;
+            animation: twinkle var(--d) ease-in-out infinite var(--del);
+        }
+
+        /* Card */
+        .tg-card {
+            position: relative; z-index: 2;
+            width: min(92vw, 520px);
+            background: linear-gradient(145deg, rgba(22,14,48,0.92) 0%, rgba(8,10,28,0.96) 100%);
+            border: 1px solid rgba(176,96,255,0.28);
+            border-radius: clamp(20px, 4vw, 32px);
+            padding: clamp(32px, 6vw, 60px) clamp(24px, 6vw, 56px) clamp(28px, 5vw, 52px);
+            text-align: center;
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,0.04) inset,
+                0 30px 80px rgba(0,0,0,0.7),
+                0 0 100px rgba(140,60,255,0.12);
+            animation: cardIn 0.75s cubic-bezier(0.34,1.45,0.64,1) both;
+            backdrop-filter: blur(24px);
+        }
+
+        /* Corner accent lines */
+        .tg-card::before, .tg-card::after {
+            content: ''; position: absolute; border-radius: 3px; pointer-events: none;
+        }
+        .tg-card::before {
+            top: 18px; left: 18px; width: 32px; height: 32px;
+            border-top: 2px solid rgba(176,96,255,0.55);
+            border-left: 2px solid rgba(176,96,255,0.55);
+            border-radius: 6px 0 0 0;
+        }
+        .tg-card::after {
+            bottom: 18px; right: 18px; width: 32px; height: 32px;
+            border-bottom: 2px solid rgba(0,255,204,0.45);
+            border-right:  2px solid rgba(0,255,204,0.45);
+            border-radius: 0 0 6px 0;
+        }
+
+        /* Logo ring system */
+        .tg-logo-wrap {
+            position: relative;
+            width: clamp(90px, 18vw, 120px);
+            height: clamp(90px, 18vw, 120px);
+            margin: 0 auto clamp(20px, 4vw, 32px);
+        }
+        .tg-logo-ring {
+            position: absolute; inset: -10px;
+            border-radius: 50%;
+            border: 1.5px dashed rgba(176,96,255,0.3);
+            animation: orbitRing 8s linear infinite;
+        }
+        .tg-logo-ring2 {
+            position: absolute; inset: -20px;
+            border-radius: 50%;
+            border: 1px dashed rgba(0,255,204,0.2);
+            animation: orbitRingRev 12s linear infinite;
+        }
+        .tg-logo {
+            width: 100%; height: 100%;
+            background: linear-gradient(135deg, #2AABEE 0%, #1a8fd1 60%, #1478b8 100%);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: clamp(32px, 7vw, 52px);
+            animation: pulseLogo 2.8s ease-in-out infinite;
+            position: relative; z-index: 1;
+        }
+
+        /* Floating micro particles around logo */
+        .tg-particle {
+            position: absolute;
+            width: 5px; height: 5px;
+            border-radius: 50%;
+            background: var(--pc);
+            animation: floatParticle var(--pd) ease-in-out infinite var(--pde);
+        }
+
+        /* Badge */
+        .tg-badge {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: rgba(176,96,255,0.12);
+            border: 1px solid rgba(176,96,255,0.3);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-family: var(--font-mono);
+            font-size: clamp(0.58rem, 1.5vw, 0.68rem);
+            color: rgba(176,96,255,0.85);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: clamp(12px, 2.5vw, 18px);
+        }
+        .tg-badge-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #b060ff;
+            box-shadow: 0 0 8px #b060ff;
+            animation: recBlink 1.4s ease-in-out infinite;
+        }
+
+        /* Title */
+        .tg-title {
+            font-family: var(--font-main);
+            font-size: clamp(1.4rem, 4.5vw, 2.2rem);
+            font-weight: 900;
+            letter-spacing: clamp(1px, 0.5vw, 3px);
+            line-height: 1.15;
+            margin-bottom: clamp(10px, 2vw, 16px);
+            background: linear-gradient(100deg, #c080ff 0%, #00ffcc 50%, #c080ff 100%);
+            background-size: 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmerText 3.5s linear infinite;
+        }
+
+        /* Subtitle */
+        .tg-sub {
+            font-family: var(--font-mono);
+            font-size: clamp(0.75rem, 2.2vw, 0.88rem);
+            color: rgba(255,255,255,0.5);
+            line-height: 1.8;
+            margin-bottom: clamp(24px, 5vw, 40px);
+            letter-spacing: 0.3px;
+        }
+        .tg-sub strong { color: #00ffcc; font-weight: 700; }
+
+        /* Divider row */
+        .tg-divider-row {
+            display: flex; align-items: center; gap: 12px;
+            margin-bottom: clamp(20px, 4vw, 32px);
+        }
+        .tg-divider-line {
+            flex: 1; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(176,96,255,0.35), transparent);
+        }
+        .tg-divider-icon {
+            font-size: 0.8rem; color: rgba(176,96,255,0.5);
+        }
+
+        /* Buttons wrapper */
+        .tg-btns { display: flex; flex-direction: column; gap: clamp(10px, 2.5vw, 14px); }
+
+        /* Join button */
+        .tg-btn {
+            position: relative; overflow: hidden;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+            width: 100%;
+            padding: clamp(14px, 3.5vw, 18px) clamp(20px, 4vw, 32px);
+            background: linear-gradient(90deg, #2AABEE 0%, #1a8fd1 50%, #2AABEE 100%);
+            background-size: 200%;
+            border: none; border-radius: 16px;
+            color: #fff;
+            font-family: var(--font-main);
+            font-size: clamp(0.8rem, 2.5vw, 0.95rem);
+            font-weight: 700;
+            letter-spacing: clamp(1px, 0.4vw, 2px);
+            cursor: pointer;
+            transition: all 0.35s ease;
+            box-shadow: 0 6px 30px rgba(42,171,238,0.35), 0 2px 8px rgba(0,0,0,0.4);
+            text-decoration: none;
+        }
+        .tg-btn:hover {
+            background-position: right center;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(42,171,238,0.55), 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .tg-btn:active { transform: translateY(0) scale(0.98); }
+        .tg-btn .ripple-el {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.35);
+            transform: scale(0);
+            animation: btnRipple 0.6s linear forwards;
+            pointer-events: none;
+        }
+        .tg-btn-icon {
+            width: clamp(22px, 5vw, 28px); height: clamp(22px, 5vw, 28px);
+            background: rgba(255,255,255,0.2);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: clamp(12px, 2.5vw, 15px);
+            flex-shrink: 0;
+        }
+
+        /* Done button */
+        .tg-btn-done {
+            position: relative; overflow: hidden;
+            display: none;
+            width: 100%;
+            align-items: center; justify-content: center; gap: 10px;
+            padding: clamp(14px, 3.5vw, 18px) clamp(20px, 4vw, 32px);
+            background: linear-gradient(90deg, #00ffcc 0%, #00e0b0 50%, #00ffcc 100%);
+            background-size: 200%;
+            border: none; border-radius: 16px;
+            color: #030d0a;
+            font-family: var(--font-main);
+            font-size: clamp(0.8rem, 2.5vw, 0.95rem);
+            font-weight: 900;
+            letter-spacing: clamp(1px, 0.4vw, 2px);
+            cursor: pointer;
+            transition: all 0.35s ease;
+            box-shadow: 0 6px 30px rgba(0,255,204,0.35), 0 2px 8px rgba(0,0,0,0.4);
+            animation: doneIn 0.55s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+        .tg-btn-done.show { display: flex; }
+        .tg-btn-done:hover {
+            background-position: right center;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0,255,204,0.6), 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .tg-btn-done:active { transform: translateY(0) scale(0.98); }
+        .tg-btn-done .ripple-el {
+            position: absolute; border-radius: 50%;
+            background: rgba(0,0,0,0.2);
+            transform: scale(0);
+            animation: btnRipple 0.6s linear forwards;
+            pointer-events: none;
+        }
+
+        /* Footer note */
+        .tg-note {
+            font-family: var(--font-mono);
+            font-size: clamp(0.62rem, 1.5vw, 0.7rem);
+            color: rgba(255,255,255,0.2);
+            margin-top: clamp(14px, 3vw, 20px);
+            letter-spacing: 0.5px;
+        }
+        .tg-note a { color: rgba(176,96,255,0.5); text-decoration: none; }
+
+        /* ─────────────────── GUIDE POPUP ─────────────────── */
+        #guideOverlay {
+            position: fixed; inset: 0; z-index: 8000;
+            background: rgba(3,4,15,0.88);
+            backdrop-filter: blur(20px);
+            display: none;
+            align-items: center; justify-content: center;
+            padding: 16px;
+        }
+        #guideOverlay.show { display: flex; }
+
+        .guide-card {
+            position: relative;
+            width: min(96vw, 600px);
+            max-height: 88vh;
+            overflow-y: auto;
+            background: linear-gradient(145deg, rgba(16,10,38,0.97) 0%, rgba(6,8,22,0.98) 100%);
+            border: 1px solid rgba(0,255,204,0.2);
+            border-radius: clamp(16px, 3vw, 26px);
+            padding: clamp(24px, 5vw, 44px) clamp(20px, 5vw, 44px) clamp(20px, 4vw, 36px);
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.04) inset, 0 30px 80px rgba(0,0,0,0.8);
+            animation: cardIn 0.6s cubic-bezier(0.34,1.45,0.64,1) both;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0,255,204,0.2) transparent;
+        }
+        .guide-card::-webkit-scrollbar { width: 4px; }
+        .guide-card::-webkit-scrollbar-track { background: transparent; }
+        .guide-card::-webkit-scrollbar-thumb { background: rgba(0,255,204,0.25); border-radius: 2px; }
+
+        .guide-card::before {
+            content: ''; position: absolute;
+            top: 0; left: 50%; transform: translateX(-50%);
+            width: 60%; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0,255,204,0.5), transparent);
+        }
+
+        .guide-close {
+            position: absolute; top: 16px; right: 16px;
+            width: 36px; height: 36px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            color: rgba(255,255,255,0.5);
+            font-size: 1rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .guide-close:hover { background: rgba(255,60,60,0.15); border-color: rgba(255,60,60,0.4); color: #ff6060; }
+
+        .guide-header { text-align: center; margin-bottom: clamp(20px, 4vw, 32px); }
+
+        .guide-badge {
+            display: inline-block;
+            background: rgba(0,255,204,0.08);
+            border: 1px solid rgba(0,255,204,0.25);
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-family: var(--font-mono);
+            font-size: 0.62rem;
+            color: rgba(0,255,204,0.7);
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .guide-title {
+            font-family: var(--font-main);
+            font-size: clamp(1.2rem, 4vw, 1.8rem);
+            font-weight: 900;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, #00ffcc, #b060ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+
+        .guide-tagline {
+            font-family: var(--font-mono);
+            font-size: clamp(0.68rem, 1.8vw, 0.75rem);
+            color: rgba(255,255,255,0.35);
+            letter-spacing: 1px;
+        }
+
+        /* Alert box */
+        .guide-alert {
+            display: flex; align-items: flex-start; gap: 12px;
+            background: rgba(255,180,0,0.07);
+            border: 1px solid rgba(255,180,0,0.25);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: clamp(18px, 3.5vw, 28px);
+            font-family: var(--font-mono);
+            font-size: clamp(0.7rem, 1.8vw, 0.76rem);
+            color: rgba(255,210,80,0.85);
+            line-height: 1.6;
+        }
+        .guide-alert-icon { font-size: 1.2rem; flex-shrink: 0; margin-top: 1px; }
+
+        /* Section */
+        .guide-section { margin-bottom: clamp(16px, 3.5vw, 26px); }
+        .guide-section-title {
+            font-family: var(--font-main);
+            font-size: clamp(0.65rem, 1.8vw, 0.72rem);
+            letter-spacing: 2.5px;
+            color: rgba(0,255,204,0.6);
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .guide-section-title::after {
+            content: ''; flex: 1; height: 1px;
+            background: linear-gradient(90deg, rgba(0,255,204,0.2), transparent);
+        }
+
+        /* Step cards */
+        .guide-steps { display: flex; flex-direction: column; gap: 8px; }
+        .guide-step {
+            display: flex; align-items: flex-start; gap: 14px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 12px;
+            padding: clamp(10px, 2.5vw, 14px) clamp(12px, 3vw, 16px);
+            transition: all 0.2s ease;
+        }
+        .guide-step:hover {
+            background: rgba(0,255,204,0.04);
+            border-color: rgba(0,255,204,0.12);
+        }
+        .guide-step-num {
+            width: clamp(28px, 5vw, 34px); height: clamp(28px, 5vw, 34px);
+            flex-shrink: 0;
+            background: linear-gradient(135deg, rgba(0,255,204,0.15), rgba(176,96,255,0.15));
+            border: 1px solid rgba(0,255,204,0.2);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-main);
+            font-size: clamp(0.7rem, 1.8vw, 0.8rem);
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .guide-step-content {}
+        .guide-step-label {
+            font-family: var(--font-main);
+            font-size: clamp(0.72rem, 1.9vw, 0.8rem);
+            font-weight: 700;
+            color: rgba(255,255,255,0.88);
+            margin-bottom: 3px;
+            letter-spacing: 0.5px;
+        }
+        .guide-step-desc {
+            font-family: var(--font-mono);
+            font-size: clamp(0.65rem, 1.6vw, 0.7rem);
+            color: rgba(255,255,255,0.42);
+            line-height: 1.6;
+        }
+        .guide-step-desc strong { color: rgba(0,255,204,0.7); }
+
+        /* Gesture grid */
+        .guide-gestures {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 8px;
+        }
+        .guide-gesture {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.07);
+            border-radius: 12px;
+            padding: clamp(10px, 2.5vw, 14px);
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .guide-gesture:hover {
+            background: rgba(176,96,255,0.05);
+            border-color: rgba(176,96,255,0.2);
+            transform: translateY(-2px);
+        }
+        .guide-gesture-icon { font-size: clamp(1.4rem, 4vw, 1.9rem); margin-bottom: 8px; display: block; }
+        .guide-gesture-name {
+            font-family: var(--font-main);
+            font-size: clamp(0.62rem, 1.5vw, 0.7rem);
+            font-weight: 700;
+            color: rgba(255,255,255,0.75);
+            margin-bottom: 4px;
+            letter-spacing: 0.5px;
+        }
+        .guide-gesture-desc {
+            font-family: var(--font-mono);
+            font-size: clamp(0.58rem, 1.4vw, 0.63rem);
+            color: rgba(255,255,255,0.35);
+            line-height: 1.5;
+        }
+
+        /* Start button inside guide */
+        .guide-enter-btn {
+            position: relative; overflow: hidden;
+            width: 100%; margin-top: clamp(20px, 4vw, 30px);
+            padding: clamp(14px, 3.5vw, 18px);
+            background: linear-gradient(90deg, #00ffcc 0%, #00b894 50%, #00ffcc 100%);
+            background-size: 200%;
+            border: none; border-radius: 16px;
+            color: #030d0a;
+            font-family: var(--font-main);
+            font-size: clamp(0.82rem, 2.5vw, 0.95rem);
+            font-weight: 900;
+            letter-spacing: clamp(1.5px, 0.5vw, 3px);
+            cursor: pointer;
+            transition: all 0.35s ease;
+            box-shadow: 0 6px 30px rgba(0,255,204,0.3);
+        }
+        .guide-enter-btn:hover {
+            background-position: right center;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 40px rgba(0,255,204,0.55);
+        }
+        .guide-enter-btn:active { transform: scale(0.98); }
+        .guide-enter-btn .ripple-el {
+            position: absolute; border-radius: 50%;
+            background: rgba(0,0,0,0.15);
+            transform: scale(0);
+            animation: btnRipple 0.6s linear forwards;
+            pointer-events: none;
+        }
+
+        /* ─────────────────── START OVERLAY ─────────────────── */
+        #startOverlay {
+            position: absolute; inset: 0; z-index: 500;
+            background: radial-gradient(ellipse at 50% 45%, rgba(10,5,25,0.94) 0%, rgba(3,4,15,0.97) 100%);
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            backdrop-filter: blur(12px);
+            transition: opacity 0.6s ease;
+        }
+
+        .start-title {
+            font-family: var(--font-main);
+            font-size: clamp(1.8rem, 5vw, 3rem);
+            font-weight: 900;
+            letter-spacing: 5px;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00ffcc, #b060ff, #00ffcc);
+            background-size: 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmerText 3s linear infinite;
+        }
+
+        .start-sub {
+            font-family: var(--font-mono);
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.4);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 50px;
+        }
+
+        .start-btn {
+            padding: 16px 48px;
+            font-family: var(--font-main);
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 3px;
+            background: transparent;
+            border: 1.5px solid var(--accent);
+            color: var(--accent);
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .start-btn::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: var(--accent);
+            transform: scaleX(0); transform-origin: left;
+            transition: transform 0.35s ease;
+            z-index: -1;
+            border-radius: 50px;
+        }
+
+        .start-btn:hover {
+            color: #020a10;
+            box-shadow: 0 0 40px rgba(0,255,204,0.5);
+        }
+        .start-btn:hover::before { transform: scaleX(1); }
+
+        .cam-note {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            color: rgba(255,255,255,0.22);
+            margin-top: 20px;
+            letter-spacing: 1px;
+        }
+
+        /* ─────────────────── VIDEO / CANVAS ─────────────────── */
+        .video-container {
+            position: absolute; inset: 0;
+            width: 100vw; height: 100vh;
+        }
+
+        .input_video {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            filter: brightness(0.55) contrast(1.05);
+            z-index: 0;
+        }
+
+        #bgCanvas, #mainCanvas, #drawCanvas {
+            position: absolute; inset: 0;
+            width: 100%; height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+        }
+
+        #bgCanvas  { z-index: 1; pointer-events: none; }
+        #drawCanvas{ z-index: 3; pointer-events: none; }
+        #mainCanvas{ z-index: 5; pointer-events: none; }
+
+        /* ─────────────────── HUD ─────────────────── */
+        #hud {
+            position: absolute; top: 20px; left: 20px;
+            z-index: 20;
+            display: flex; flex-direction: column; gap: 12px;
+            pointer-events: none;
+        }
+
+        .panel {
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            padding: 14px 18px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .panel-title {
+            font-size: 0.55rem;
+            letter-spacing: 2.5px;
+            color: rgba(255,255,255,0.3);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+            padding-bottom: 6px;
+        }
+
+        .stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            color: rgba(255,255,255,0.6);
+            min-width: 170px;
+        }
+        .stat:last-child { margin-bottom: 0; }
+        .stat .val {
+            font-weight: 700;
+            color: var(--accent);
+            font-family: var(--font-main);
+            font-size: 0.72rem;
+        }
+
+        /* ─────────────────── TOOLBAR (right) ─────────────────── */
+        #toolbar {
+            position: absolute; top: 50%; right: 20px;
+            transform: translateY(-50%);
+            z-index: 20;
+            display: flex; flex-direction: column; gap: 10px;
+            align-items: center;
+        }
+
+        .tool-btn {
+            width: 50px; height: 50px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 14px;
+            color: rgba(255,255,255,0.55);
+            font-size: 1.3rem;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.25s ease;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+            position: relative;
+        }
+
+        .tool-btn:hover, .tool-btn.active {
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 20px rgba(0,255,204,0.3), 0 4px 16px rgba(0,0,0,0.4);
+            background: rgba(0,255,204,0.07);
+        }
+
+        .tool-btn .tip {
+            position: absolute; right: 58px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 5px 10px;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            white-space: nowrap;
+            color: rgba(255,255,255,0.7);
+            pointer-events: none;
+            opacity: 0; transition: opacity 0.2s;
+        }
+        .tool-btn:hover .tip { opacity: 1; }
+
+        /* ─────────────────── THEMES ─────────────────── */
+        #themes {
+            position: absolute; bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex; gap: 8px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 40px;
+            padding: 7px;
+        }
+
+        .theme-btn {
+            background: transparent;
+            border: 1px solid transparent;
+            color: rgba(255,255,255,0.5);
+            padding: 7px 16px;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: 0.3s ease;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+        }
+
+        .theme-btn.active {
+            background: rgba(255,255,255,0.1);
+            border-color: var(--accent);
+            color: var(--accent);
+            box-shadow: 0 0 15px rgba(0,255,204,0.2);
+        }
+
+        .theme-btn:hover:not(.active) {
+            color: rgba(255,255,255,0.8);
+            background: rgba(255,255,255,0.05);
+        }
+
+        /* ─────────────────── GESTURE TOAST ─────────────────── */
+        #gestureToast {
+            position: absolute;
+            bottom: 80px; left: 50%;
+            transform: translateX(-50%) translateY(0);
+            z-index: 30;
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            border: 1px solid rgba(0,255,204,0.3);
+            border-radius: 30px;
+            padding: 8px 22px;
+            font-family: var(--font-main);
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            color: var(--accent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            pointer-events: none;
+            box-shadow: 0 0 20px rgba(0,255,204,0.2);
+        }
+
+        /* ─────────────────── DRAW COLOR PICKER ─────────────────── */
+        #drawControls {
+            position: absolute; top: 20px; right: 82px;
+            z-index: 20;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-end;
+        }
+
+        #drawControls.visible { display: flex; }
+
+        .color-swatch {
+            width: 32px; height: 32px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.2);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+        }
+
+        .color-swatch:hover, .color-swatch.active {
+            border-color: white;
+            transform: scale(1.2);
+            box-shadow: 0 0 15px rgba(255,255,255,0.5);
+        }
+
+        .brush-size {
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 6px 12px;
+            display: flex; gap: 6px; align-items: center;
+        }
+
+        .brush-btn {
+            background: none; border: none; color: rgba(255,255,255,0.5);
+            cursor: pointer; font-family: var(--font-mono); font-size: 0.7rem;
+            padding: 2px 6px; border-radius: 10px; transition: all 0.2s;
+        }
+        .brush-btn:hover, .brush-btn.active { color: var(--accent); background: rgba(0,255,204,0.1); }
+
+        /* ─────────────────── RECORD INDICATOR ─────────────────── */
+        #recIndicator {
+            position: absolute; top: 20px; right: 85px;
+            z-index: 20;
+            display: none;
+            align-items: center; gap: 8px;
+            background: var(--glass-bg);
+            backdrop-filter: var(--blur);
+            border: 1px solid rgba(255,60,60,0.4);
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            color: #ff4040;
+        }
+
+        #recIndicator.visible { display: flex; }
+
+        .rec-dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: #ff4040;
+            animation: recBlink 1s ease-in-out infinite;
+        }
+
+        @keyframes recBlink {
+            0%,100% { opacity: 1; }
+            50%      { opacity: 0.2; }
+        }
+
+        .hidden { opacity: 0 !important; pointer-events: none !important; }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════ TELEGRAM POPUP ═══════════════ -->
+<div id="tgOverlay">
+    <!-- Ambient orbs -->
+    <div class="tg-orb" style="width:380px;height:380px;top:-80px;left:-100px;background:rgba(120,40,220,0.18);--od:6s;--odel:0s;"></div>
+    <div class="tg-orb" style="width:280px;height:280px;bottom:-60px;right:-80px;background:rgba(0,200,180,0.12);--od:8s;--odel:-3s;"></div>
+    <div class="tg-orb" style="width:200px;height:200px;top:40%;left:10%;background:rgba(60,100,255,0.1);--od:5s;--odel:-1.5s;"></div>
+
+    <div class="stars" id="starField"></div>
+
+    <div class="tg-card">
+        <!-- Logo ring system -->
+        <div class="tg-logo-wrap">
+            <div class="tg-logo-ring2"></div>
+            <div class="tg-logo-ring"></div>
+            <div class="tg-logo">✈️</div>
+            <!-- Micro particles -->
+            <div class="tg-particle" style="top:0;left:20%;--pc:#00ffcc;--pd:2.8s;--pde:0s;"></div>
+            <div class="tg-particle" style="top:15%;right:5%;--pc:#b060ff;--pd:3.5s;--pde:-1s;"></div>
+            <div class="tg-particle" style="bottom:5%;left:10%;--pc:#2AABEE;--pd:4s;--pde:-2s;"></div>
+            <div class="tg-particle" style="bottom:20%;right:0%;--pc:#ffcc00;--pd:3.2s;--pde:-0.5s;"></div>
+        </div>
+
+        <div class="tg-badge"><div class="tg-badge-dot"></div>Exclusive Access</div>
+        <div class="tg-title">FOLLOW TO UNLOCK</div>
+        <p class="tg-sub">
+            This AR experience is created by<br>
+            <strong>@PythosX</strong> — Follow the Github to<br>
+            get full access to Air Canvas.
+        </p>
+
+        <div class="tg-divider-row">
+            <div class="tg-divider-line"></div>
+            <div class="tg-divider-icon">⬡</div>
+            <div class="tg-divider-line"></div>
+        </div>
+
+        <div class="tg-btns">
+            <a href="https://github.com/pythosx" target="_blank" class="tg-btn" id="joinBtn">
+                <span class="tg-btn-icon">✈</span>
+                Follow PythosX
+            </a>
+            <button class="tg-btn-done" id="doneBtn">
+                <span class="tg-btn-icon">✓</span>
+                Done — I've Followed, Enter Now
+            </button>
+        </div>
+
+        <p class="tg-note">Opens GitHub → Follow → come back and tap Done</p>
+    </div>
+</div>
+
+<!-- ═══════════════ GUIDE POPUP ═══════════════ -->
+<div id="guideOverlay">
+    <div class="guide-card">
+        <button class="guide-close" onclick="closeGuide()">✕</button>
+
+        <div class="guide-header">
+            <div class="guide-badge">How To Use</div>
+            <div class="guide-title">Air Canvas</div>
+            <div class="guide-tagline">Hand tracking · Air drawing · Lightning arcs</div>
+        </div>
+
+        <div class="guide-alert">
+            <span class="guide-alert-icon">📸</span>
+            <span><strong style="color:rgba(255,210,80,0.95)">Camera access is required.</strong> When prompted by your browser, tap <em>Allow</em> to enable your front camera. Without it, hand tracking will not work.</span>
+        </div>
+
+        <div class="guide-section">
+            <div class="guide-section-title">Getting Started</div>
+            <div class="guide-steps">
+                <div class="guide-step">
+                    <div class="guide-step-num">1</div>
+                    <div class="guide-step-content">
+                        <div class="guide-step-label">Allow Camera</div>
+                        <div class="guide-step-desc">Tap <strong>Allow</strong> when browser asks for camera permission. Use a well-lit room facing your camera.</div>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <div class="guide-step-num">2</div>
+                    <div class="guide-step-content">
+                        <div class="guide-step-label">Raise Your Hands</div>
+                        <div class="guide-step-desc">Hold one or both hands <strong>open, facing the camera</strong> at arm's length. Keep fingers spread for best tracking.</div>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <div class="guide-step-num">3</div>
+                    <div class="guide-step-content">
+                        <div class="guide-step-label">Watch the Magic</div>
+                        <div class="guide-step-desc">Neon arcs and skeleton lines appear instantly. Bring <strong>both hands</strong> close to each other for lightning effects.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="guide-section">
+            <div class="guide-section-title">Gestures</div>
+            <div class="guide-gestures">
+                <div class="guide-gesture">
+                    <span class="guide-gesture-icon">🤌</span>
+                    <div class="guide-gesture-name">PINCH</div>
+                    <div class="guide-gesture-desc">Bring thumb + index finger together → shockwave burst + zap sound</div>
+                </div>
+                <div class="guide-gesture">
+                    <span class="guide-gesture-icon">🖐️</span>
+                    <div class="guide-gesture-name">OPEN HAND</div>
+                    <div class="guide-gesture-desc">Spread all fingers wide → shows spread % in HUD</div>
+                </div>
+                <div class="guide-gesture">
+                    <span class="guide-gesture-icon">✊</span>
+                    <div class="guide-gesture-name">FIST</div>
+                    <div class="guide-gesture-desc">Close fingers together → detected as Fist mode</div>
+                </div>
+                <div class="guide-gesture">
+                    <span class="guide-gesture-icon">🙌</span>
+                    <div class="guide-gesture-name">BOTH PALMS</div>
+                    <div class="guide-gesture-desc">Use two hands → lightning arcs + mandala pattern between fingertips</div>
+                </div>
+                <div class="guide-gesture">
+                    <span class="guide-gesture-icon">✏️</span>
+                    <div class="guide-gesture-name">AIR DRAW</div>
+                    <div class="guide-gesture-desc">Switch to Draw mode → pinch to paint glowing trails in the air</div>
+                </div>
+                <div class="guide-gesture">
+                    <span class="guide-gesture-icon">⚡</span>
+                    <div class="guide-gesture-name">CLOSE HANDS</div>
+                    <div class="guide-gesture-desc">Bring index fingers of both hands near each other → electric sparks fire</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="guide-section">
+            <div class="guide-section-title">Toolbar (Right Side)</div>
+            <div class="guide-steps">
+                <div class="guide-step">
+                    <div class="guide-step-num">⚡</div>
+                    <div class="guide-step-content">
+                        <div class="guide-step-label">Arc Mode</div>
+                        <div class="guide-step-desc">Default mode — shows lightning arcs and neon skeleton on your hands.</div>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <div class="guide-step-num">✏️</div>
+                    <div class="guide-step-content">
+                        <div class="guide-step-label">Air Draw Mode</div>
+                        <div class="guide-step-desc"><strong>Pinch</strong> your index finger and thumb together to draw glowing strokes in mid-air. Release to stop.</div>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <div class="guide-step-num">📷</div>
+                    <div class="guide-step-content">
+                        <div class="guide-step-label">Screenshot</div>
+                        <div class="guide-step-desc">Saves a full composite PNG of your current AR frame — camera + effects + drawing.</div>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <div class="guide-step-num">⏺</div>
+                    <div class="guide-step-content">
+                        <div class="guide-step-label">Record Video</div>
+                        <div class="guide-step-desc">Tap once to start recording, tap again to stop and download as <strong>.webm</strong> video file.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="guide-section" style="margin-bottom:0;">
+            <div class="guide-section-title">Tips</div>
+            <div class="guide-steps">
+                <div class="guide-step">
+                    <div class="guide-step-num">💡</div>
+                    <div class="guide-step-content">
+                        <div class="guide-step-label">Best Performance</div>
+                        <div class="guide-step-desc">Use in <strong>good lighting</strong>. Dark backgrounds work best — your hands pop against the neon effects.</div>
+                    </div>
+                </div>
+                <div class="guide-step">
+                    <div class="guide-step-num">🎨</div>
+                    <div class="guide-step-content">
+                        <div class="guide-step-label">Change Theme</div>
+                        <div class="guide-step-desc">Use the theme buttons at the bottom — <strong>Rainbow, Cyber, Lava, Ocean, Galaxy</strong> — to change all arc colors.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <button class="guide-enter-btn" id="guideEnterBtn">⬡ &nbsp; Let's Begin — Grant Camera</button>
+    </div>
+</div>
+
+<!-- ═══════════════ START OVERLAY ═══════════════ -->
+<div id="startOverlay">
+    <div class="start-title">Air Canvas</div>
+    <div class="start-sub">by PythosX</div>
+    <button class="start-btn" id="startBtn">⬡ Initialise Experience</button>
+    <p class="cam-note">Camera + microphone access required</p>
+</div>
+
+<!-- ═══════════════ VIDEO & CANVAS LAYER ═══════════════ -->
+<div class="video-container">
+    <video class="input_video" autoplay playsinline></video>
+    <canvas id="bgCanvas"></canvas>
+    <canvas id="drawCanvas"></canvas>
+    <canvas id="mainCanvas"></canvas>
+</div>
+
+<!-- ═══════════════ HUD ═══════════════ -->
+<div id="hud" class="hidden">
+    <div class="panel">
+        <div class="panel-title">System</div>
+        <div class="stat">Hands <span class="val" id="ui-hands">0</span></div>
+        <div class="stat">FPS <span class="val" id="ui-fps">—</span></div>
+        <div class="stat">Mode <span class="val" id="ui-mode">ARC</span></div>
+    </div>
+    <div class="panel">
+        <div class="panel-title">Gesture</div>
+        <div class="stat">Type <span class="val" id="ui-gesture">—</span></div>
+        <div class="stat">Spread <span class="val" id="ui-spread">0%</span></div>
+    </div>
+</div>
+
+<!-- ═══════════════ RIGHT TOOLBAR ═══════════════ -->
+<div id="toolbar" class="hidden">
+    <button class="tool-btn active" id="btnArc" onclick="setMode('arc')">
+        ⚡<span class="tip">Arc Mode</span>
+    </button>
+    <button class="tool-btn" id="btnDraw" onclick="setMode('draw')">
+        ✏️<span class="tip">Air Draw</span>
+    </button>
+    <button class="tool-btn" id="btnClearDraw" onclick="clearDrawing()">
+        🗑️<span class="tip">Clear Drawing</span>
+    </button>
+    <button class="tool-btn" id="btnSnap" onclick="takeScreenshot()">
+        📷<span class="tip">Screenshot</span>
+    </button>
+    <button class="tool-btn" id="btnRec" onclick="toggleRecord()">
+        ⏺<span class="tip">Record Video</span>
+    </button>
+</div>
+
+<!-- Draw color palette (shows when draw mode) -->
+<div id="drawControls">
+    <div class="brush-size">
+        <button class="brush-btn active" data-size="2" onclick="setBrushSize(2,this)">S</button>
+        <button class="brush-btn" data-size="4" onclick="setBrushSize(4,this)">M</button>
+        <button class="brush-btn" data-size="7" onclick="setBrushSize(7,this)">L</button>
+    </div>
+    <div class="color-swatch active" style="background:#00ffcc" onclick="setDrawColor('#00ffcc',this)"></div>
+    <div class="color-swatch" style="background:#ff00cc" onclick="setDrawColor('#ff00cc',this)"></div>
+    <div class="color-swatch" style="background:#b060ff" onclick="setDrawColor('#b060ff',this)"></div>
+    <div class="color-swatch" style="background:#ffdd00" onclick="setDrawColor('#ffdd00',this)"></div>
+    <div class="color-swatch" style="background:#ff4040" onclick="setDrawColor('#ff4040',this)"></div>
+    <div class="color-swatch" style="background:#ffffff" onclick="setDrawColor('#ffffff',this)"></div>
+</div>
+
+<!-- Recording indicator -->
+<div id="recIndicator">
+    <div class="rec-dot"></div>
+    <span id="recTime">00:00</span>
+</div>
+
+<!-- Gesture Toast -->
+<div id="gestureToast" id="gestureToast"></div>
+
+<!-- Themes -->
+<div id="themes" class="hidden">
+    <button class="theme-btn active" data-theme="Rainbow">RAINBOW</button>
+    <button class="theme-btn" data-theme="Cyberpunk">CYBER</button>
+    <button class="theme-btn" data-theme="Lava">LAVA</button>
+    <button class="theme-btn" data-theme="Ocean">OCEAN</button>
+    <button class="theme-btn" data-theme="Galaxy">GALAXY</button>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  TELEGRAM POPUP LOGIC
+// ══════════════════════════════════════════
+(function buildStars() {
+    const sf = document.getElementById('starField');
+    for (let i = 0; i < 120; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        const sz = Math.random() * 2.2 + 0.4;
+        s.style.cssText = `width:${sz}px;height:${sz}px;left:${Math.random()*100}%;top:${Math.random()*100}%;--d:${1.8+Math.random()*5}s;--del:-${Math.random()*5}s;`;
+        sf.appendChild(s);
+    }
+})();
+
+// Ripple effect helper
+function addRipple(btn, e) {
+    const rect = btn.getBoundingClientRect();
+    const x = (e.clientX || rect.left + rect.width/2) - rect.left;
+    const y = (e.clientY || rect.top + rect.height/2) - rect.top;
+    const size = Math.max(rect.width, rect.height) * 2;
+    const r = document.createElement('span');
+    r.className = 'ripple-el';
+    r.style.cssText = `width:${size}px;height:${size}px;left:${x - size/2}px;top:${y - size/2}px;`;
+    btn.appendChild(r);
+    setTimeout(() => r.remove(), 650);
+}
+
+document.getElementById('joinBtn').addEventListener('click', function(e) {
+    addRipple(this, e);
+    setTimeout(() => {
+        const done = document.getElementById('doneBtn');
+        done.classList.add('show');
+    }, 2200);
+});
+
+document.getElementById('doneBtn').addEventListener('click', function(e) {
+    addRipple(this, e);
+    setTimeout(dismissTg, 220);
+});
+
+function dismissTg() {
+    const ov = document.getElementById('tgOverlay');
+    ov.style.transition = 'opacity 0.55s ease';
+    ov.style.opacity = '0';
+    setTimeout(() => {
+        ov.remove();
+        openGuide();
+    }, 580);
+}
+
+// ══════════════════════════════════════════
+//  GUIDE POPUP LOGIC
+// ══════════════════════════════════════════
+function openGuide() {
+    document.getElementById('guideOverlay').classList.add('show');
+}
+
+function closeGuide() {
+    const g = document.getElementById('guideOverlay');
+    g.style.transition = 'opacity 0.4s ease';
+    g.style.opacity = '0';
+    setTimeout(() => { g.remove(); }, 450);
+}
+
+document.getElementById('guideEnterBtn').addEventListener('click', function(e) {
+    addRipple(this, e);
+    setTimeout(closeGuide, 180);
+});
+
+// ══════════════════════════════════════════
+//  GLOBALS & CONFIG
+// ══════════════════════════════════════════
+const videoEl   = document.querySelector('.input_video');
+const bgCanvas  = document.getElementById('bgCanvas');
+const drawCvs   = document.getElementById('drawCanvas');
+const mainCvs   = document.getElementById('mainCanvas');
+const bgCtx     = bgCanvas.getContext('2d');
+const drawCtx   = drawCvs.getContext('2d');
+const ctx       = mainCvs.getContext('2d');
+
+let W = window.innerWidth, H = window.innerHeight;
+let time = 0, lastTime = performance.now();
+let fps = 0, frames = 0, lastFpsStamp = performance.now();
+
+let currentHands = [];
+let handVelocity = 0;
+let currentTheme = 'Rainbow';
+let appMode = 'arc'; // 'arc' | 'draw'
+
+// Draw state
+let drawColor = '#00ffcc';
+let brushSize = 2;
+let drawHistory = []; // paths for undo
+let currentPath = null;
+let wasDrawing = false;
+
+// Particles (only for pinch, no continuous burst)
+let particles = [];
+let ripples   = [];
+
+// Audio
+let audioCtx = null, humOsc = null, humGain = null;
+let arcSoundTimeout = null;
+
+// Recording
+let mediaRecorder = null;
+let recChunks = [];
+let recStartTime = 0;
+let recInterval = null;
+let isRecording = false;
+
+// Matrix bg
+let matrixCols = [], fontSize = 14, maxCols = 0;
+
+const FINGER_TIPS = [4, 8, 12, 16, 20];
+const HAND_CONNECTIONS_CUSTOM = window.HAND_CONNECTIONS || [];
+
+const themes = {
+    Rainbow:  (t, i, tot) => `hsl(${(t * 60 + i * (360/tot)) % 360},100%,60%)`,
+    Cyberpunk:(t, i)      => i%2===0 ? '#ff003c' : '#00f0ff',
+    Lava:     (t, i)      => `hsl(${(i*8)%40},100%,${52+Math.sin(t+i)*8}%)`,
+    Ocean:    (t, i)      => `hsl(${190+i*15},95%,58%)`,
+    Galaxy:   (t, i)      => `hsl(${265+Math.sin(t*1.5+i)*35},90%,65%)`
+};
+
+// UI refs
+const uiHands   = document.getElementById('ui-hands');
+const uiFps     = document.getElementById('ui-fps');
+const uiMode    = document.getElementById('ui-mode');
+const uiGesture = document.getElementById('ui-gesture');
+const uiSpread  = document.getElementById('ui-spread');
+const toastEl   = document.getElementById('gestureToast');
+
+// ══════════════════════════════════════════
+//  RESIZE
+// ══════════════════════════════════════════
+function resize() {
+    W = window.innerWidth; H = window.innerHeight;
+    [bgCanvas, drawCvs, mainCvs].forEach(c => { c.width = W; c.height = H; });
+    maxCols = Math.floor(W / fontSize);
+    matrixCols = Array.from({length: maxCols}, () => Math.random() * H/fontSize);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ══════════════════════════════════════════
+//  THEME SWITCHER
+// ══════════════════════════════════════════
+document.querySelectorAll('.theme-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+        document.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        currentTheme = e.target.dataset.theme;
+    });
+});
+
+// ══════════════════════════════════════════
+//  MODE & DRAW CONTROLS
+// ══════════════════════════════════════════
+function setMode(m) {
+    appMode = m;
+    document.getElementById('btnArc').classList.toggle('active', m==='arc');
+    document.getElementById('btnDraw').classList.toggle('active', m==='draw');
+    document.getElementById('drawControls').classList.toggle('visible', m==='draw');
+    uiMode.textContent = m.toUpperCase();
+    showToast(m === 'draw' ? 'AIR DRAW ON — Pinch to draw' : 'ARC MODE');
+}
+
+function setDrawColor(c, el) {
+    drawColor = c;
+    document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+    el.classList.add('active');
+    playTone(880, 'triangle', 0.1, 0.08);
+}
+
+function setBrushSize(s, el) {
+    brushSize = s;
+    document.querySelectorAll('.brush-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+}
+
+function clearDrawing() {
+    drawCtx.clearRect(0, 0, W, H);
+    drawHistory = [];
+    showToast('CANVAS CLEARED');
+    playTone(200, 'sine', 0.2, 0.15);
+}
+
+// ══════════════════════════════════════════
+//  AUDIO ENGINE
+// ══════════════════════════════════════════
+function initAudio() {
+    try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        humOsc = audioCtx.createOscillator();
+        humGain = audioCtx.createGain();
+        humOsc.type = 'sine';
+        humOsc.frequency.value = 110;
+        humGain.gain.value = 0;
+        humOsc.connect(humGain);
+        humGain.connect(audioCtx.destination);
+        humOsc.start();
+    } catch(e) { console.warn('Audio init failed', e); }
+}
+
+function playTone(freq, type='sine', vol=0.3, dur=0.12) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(freq * 0.5, audioCtx.currentTime + dur);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + dur + 0.02);
+}
+
+function triggerPinchSound() {
+    playTone(600, 'sawtooth', 0.35, 0.14);
+    setTimeout(() => playTone(300, 'sine', 0.15, 0.1), 80);
+}
+
+function triggerDrawStartSound() { playTone(440, 'triangle', 0.2, 0.09); }
+function triggerDrawEndSound()   { playTone(330, 'sine', 0.15, 0.12); }
+
+function updateHum(hands) {
+    if (!audioCtx || !humGain) return;
+    if (hands.length < 2) {
+        humGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.15);
+        return;
+    }
+    const p1 = hands[0][8], p2 = hands[1][8];
+    const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+    const proximity = Math.max(0, 1 - dist);
+    humOsc.frequency.setTargetAtTime(100 + proximity * 280, audioCtx.currentTime, 0.08);
+    humGain.gain.setTargetAtTime(0.04 + proximity * 0.1, audioCtx.currentTime, 0.08);
+}
+
+// ══════════════════════════════════════════
+//  TOAST
+// ══════════════════════════════════════════
+let toastTimer = null;
+function showToast(msg) {
+    toastEl.textContent = msg;
+    toastEl.style.opacity = '1';
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.style.opacity = '0'; }, 1800);
+}
+
+// ══════════════════════════════════════════
+//  PHYSICS (minimal — only for pinch)
+// ══════════════════════════════════════════
+function spawnPinchParticles(pos, color) {
+    for (let i = 0; i < 14; i++) {
+        const angle = (i / 14) * Math.PI * 2;
+        const speed = 2 + Math.random() * 4;
+        particles.push({
+            x: pos.x, y: pos.y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 1.0,
+            color,
+            size: Math.random() * 3 + 1
+        });
+    }
+    ripples.push({ x: pos.x, y: pos.y, radius: 0, maxR: 140 + Math.random()*60, life: 1.0, color });
+}
+
+function updatePhysics() {
+    ctx.globalAlpha = 1;
+    for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy;
+        p.vy += 0.08;
+        p.life -= 0.025;
+        if (p.life <= 0) { particles.splice(i, 1); continue; }
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life * 0.9;
+        ctx.fill();
+    }
+    for (let i = ripples.length - 1; i >= 0; i--) {
+        const r = ripples[i];
+        r.radius += (r.maxR - r.radius) * 0.12;
+        r.life -= 0.028;
+        if (r.life <= 0) { ripples.splice(i, 1); continue; }
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.radius, 0, Math.PI*2);
+        ctx.strokeStyle = r.color;
+        ctx.lineWidth = 2.5 * r.life;
+        ctx.globalAlpha = r.life * 0.8;
+        ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+}
+
+// ══════════════════════════════════════════
+//  BACKGROUND (matrix rain — subtle, performance-safe)
+// ══════════════════════════════════════════
+let bgFrameSkip = 0;
+function drawBackground() {
+    bgFrameSkip++;
+    if (bgFrameSkip < 2) return; // only update every 2 frames
+    bgFrameSkip = 0;
+
+    bgCtx.globalCompositeOperation = 'destination-out';
+    bgCtx.fillStyle = 'rgba(0,0,0,0.18)';
+    bgCtx.fillRect(0, 0, W, H);
+    bgCtx.globalCompositeOperation = 'source-over';
+
+    bgCtx.fillStyle = themes[currentTheme](time, 1, 1);
+    bgCtx.font = fontSize + 'px monospace';
+    bgCtx.globalAlpha = 0.35;
+
+    const speed = 1 + Math.min(handVelocity * 60, 4);
+    for (let i = 0; i < matrixCols.length; i++) {
+        if (Math.random() > 0.97) {
+            const ch = String.fromCharCode(0x30A0 + Math.random() * 96);
+            bgCtx.fillText(ch, i * fontSize, matrixCols[i] * fontSize);
+        }
+        matrixCols[i] += Math.random() * speed * 0.4;
+        if (matrixCols[i] * fontSize > H && Math.random() > 0.93) matrixCols[i] = 0;
+    }
+    bgCtx.globalAlpha = 1;
+}
+
+// ══════════════════════════════════════════
+//  MATH
+// ══════════════════════════════════════════
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function toCanvas(pt) { return { x: pt.x * W, y: pt.y * H }; }
+
+// ══════════════════════════════════════════
+//  GESTURE DETECTION
+// ══════════════════════════════════════════
+let lastPinch = [false, false];
+
+function detectGestures() {
+    if (!currentHands.length) return;
+
+    currentHands.forEach((hand, idx) => {
+        const thumb = hand[4], index = hand[8];
+        const d = dist(thumb, index);
+        const pinching = d < 0.055;
+
+        if (pinching && !lastPinch[idx]) {
+            // Pinch triggered
+            const mid = toCanvas({ x:(thumb.x+index.x)/2, y:(thumb.y+index.y)/2 });
+            spawnPinchParticles(mid, themes[currentTheme](time, idx, 2));
+            triggerPinchSound();
+            showToast('PINCH ⚡');
+            uiGesture.textContent = 'PINCH';
+        }
+        lastPinch[idx] = pinching;
+    });
+
+    if (currentHands[0]) {
+        const sp = dist(currentHands[0][8], currentHands[0][20]);
+        const pct = Math.min(Math.round(sp * 300), 100);
+        uiSpread.textContent = pct + '%';
+        if (!lastPinch.includes(true)) {
+            const g = pct > 55 ? 'OPEN' : 'FIST';
+            uiGesture.textContent = g;
+        }
+    }
+}
+
+// ══════════════════════════════════════════
+//  AIR DRAW
+// ══════════════════════════════════════════
+function handleAirDraw() {
+    if (!currentHands.length) { wasDrawing = false; currentPath = null; return; }
+
+    const hand = currentHands[0];
+    const thumb = hand[4], index = hand[8];
+    const d = dist(thumb, index);
+    const isPinching = d < 0.055;
+    const tipPt = toCanvas(index);
+
+    if (isPinching) {
+        if (!wasDrawing) {
+            // Start new path
+            currentPath = { color: drawColor, size: brushSize, pts: [tipPt] };
+            triggerDrawStartSound();
+        } else if (currentPath) {
+            currentPath.pts.push(tipPt);
+            // Render stroke continuously
+            const pts = currentPath.pts;
+            if (pts.length >= 2) {
+                const prev = pts[pts.length - 2];
+                const cur  = pts[pts.length - 1];
+                drawCtx.globalCompositeOperation = 'source-over';
+                drawCtx.beginPath();
+                drawCtx.moveTo(prev.x, prev.y);
+                drawCtx.lineTo(cur.x, cur.y);
+                drawCtx.strokeStyle = currentPath.color;
+                drawCtx.lineWidth = currentPath.size * 2;
+                drawCtx.lineCap = 'round';
+                drawCtx.lineJoin = 'round';
+                drawCtx.shadowBlur = 10;
+                drawCtx.shadowColor = currentPath.color;
+                drawCtx.stroke();
+                drawCtx.shadowBlur = 0;
+            }
+        }
+        wasDrawing = true;
+    } else {
+        if (wasDrawing && currentPath) {
+            drawHistory.push(currentPath);
+            currentPath = null;
+            triggerDrawEndSound();
+        }
+        wasDrawing = false;
+    }
+
+    // Show fingertip indicator when drawing mode
+    ctx.beginPath();
+    ctx.arc(tipPt.x, tipPt.y, isPinching ? 6 : 4, 0, Math.PI*2);
+    ctx.strokeStyle = drawColor;
+    ctx.lineWidth = 2;
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = drawColor;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    if (isPinching) {
+        ctx.beginPath();
+        ctx.arc(tipPt.x, tipPt.y, 3, 0, Math.PI*2);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+    }
+}
+
+// ══════════════════════════════════════════
+//  ARC / LIGHTNING RENDER
+// ══════════════════════════════════════════
+function renderArcMode() {
+    currentHands.forEach((hand, hi) => {
+        const baseColor = themes[currentTheme](time, hi, 2);
+
+        // Draw skeleton connections
+        if (window.HAND_CONNECTIONS) {
+            ctx.strokeStyle = baseColor;
+            ctx.lineWidth = 1.5;
+            ctx.globalAlpha = 0.6;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = baseColor;
+            drawConnectors(ctx, hand, HAND_CONNECTIONS, { color: baseColor, lineWidth: 1.5 });
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        }
+
+        // Fingertip glow dots
+        FINGER_TIPS.forEach((ti, fi) => {
+            const pt = toCanvas(hand[ti]);
+            const c  = themes[currentTheme](time, fi, 5);
+
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 5, 0, Math.PI*2);
+            ctx.fillStyle = '#fff';
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = c;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        });
+    });
+
+    // Two-hand effects
+    if (currentHands.length >= 2) {
+        const h1 = currentHands[0], h2 = currentHands[1];
+
+        FINGER_TIPS.forEach((ti, fi) => {
+            const p1 = toCanvas(h1[ti]), p2 = toCanvas(h2[ti]);
+            const d  = dist(p1, p2);
+            const c  = themes[currentTheme](time, fi, 5);
+
+            // Lightning arc when close
+            if (d < 160 && Math.random() > 0.45) {
+                drawLightning(p1, p2, c);
+            }
+
+            // Gradient connecting line
+            const grad = ctx.createLinearGradient(p1.x, p1.y, p2.x, p2.y);
+            grad.addColorStop(0,   themes[currentTheme](time, fi, 5));
+            grad.addColorStop(0.5, themes[currentTheme](time, fi+1, 5));
+            grad.addColorStop(1,   themes[currentTheme](time, fi+2, 5));
+
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 12;
+            ctx.shadowColor = c;
+            ctx.globalAlpha = 0.75;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1;
+        });
+
+        // Mandala — all tips connected
+        const allTips = FINGER_TIPS.map(t => toCanvas(h1[t]))
+                   .concat(FINGER_TIPS.map(t => toCanvas(h2[t])));
+        const cx = allTips.reduce((s,p) => s+p.x,0)/10;
+        const cy = allTips.reduce((s,p) => s+p.y,0)/10;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(time * 0.35);
+        ctx.beginPath();
+        for (let i = 0; i < 10; i++) {
+            const t1 = { x: allTips[i].x - cx, y: allTips[i].y - cy };
+            const t2 = { x: allTips[(i+4)%10].x - cx, y: allTips[(i+4)%10].y - cy };
+            ctx.moveTo(t1.x, t1.y);
+            ctx.lineTo(t2.x, t2.y);
+        }
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+function drawLightning(a, b, color) {
+    ctx.save();
+    const mid = { x:(a.x+b.x)/2 + (Math.random()-0.5)*45, y:(a.y+b.y)/2 + (Math.random()-0.5)*45 };
+    ctx.beginPath();
+    ctx.moveTo(a.x, a.y);
+    ctx.lineTo(mid.x, mid.y);
+    ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2.5;
+    ctx.shadowBlur = 22;
+    ctx.shadowColor = color;
+    ctx.globalAlpha = 0.85;
+    ctx.stroke();
+    ctx.restore();
+}
+
+// ══════════════════════════════════════════
+//  RENDER LOOP
+// ══════════════════════════════════════════
+function renderLoop(ts) {
+    requestAnimationFrame(renderLoop);
+
+    const dt = Math.min((ts - lastTime)/1000, 0.05);
+    lastTime = ts; time += dt;
+
+    frames++;
+    if (ts > lastFpsStamp + 1000) {
+        fps = frames;
+        frames = 0;
+        lastFpsStamp = ts;
+        uiFps.textContent = fps;
+    }
+
+    drawBackground();
+
+    // Fade main canvas (motion blur for arcs — NOT hard clear)
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'screen';
+
+    updatePhysics();
+
+    if (currentHands.length > 0) {
+        if (appMode === 'arc') {
+            renderArcMode();
+            detectGestures();
+        } else {
+            handleAirDraw();
+        }
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+}
+
+// ══════════════════════════════════════════
+//  MEDIAPIPE INIT
+// ══════════════════════════════════════════
+function initMediaPipe() {
+    const hands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
+    hands.setOptions({
+        maxNumHands: 2,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.72,
+        minTrackingConfidence: 0.72
+    });
+    hands.onResults(results => {
+        if (!audioCtx) return;
+        const detected = results.multiHandLandmarks || [];
+        uiHands.textContent = detected.length;
+
+        if (currentHands.length > 0 && detected.length > 0) {
+            const old = currentHands[0][8], nw = detected[0][8];
+            handVelocity = dist(old, nw);
+        } else {
+            handVelocity = 0;
+        }
+
+        currentHands = detected;
+        updateHum(currentHands);
+    });
+
+    const cam = new Camera(videoEl, {
+        onFrame: async () => { await hands.send({ image: videoEl }); },
+        width: 1280, height: 720, facingMode: 'user'
+    });
+    cam.start();
+}
+
+// ══════════════════════════════════════════
+//  SCREENSHOT
+// ══════════════════════════════════════════
+function takeScreenshot() {
+    const snap = document.createElement('canvas');
+    snap.width = W; snap.height = H;
+    const sCtx = snap.getContext('2d');
+
+    // Composite layers
+    sCtx.save();
+    sCtx.scale(-1,1); sCtx.translate(-W, 0);
+    sCtx.drawImage(videoEl, 0, 0, W, H);
+    sCtx.restore();
+
+    sCtx.save();
+    sCtx.scale(-1,1); sCtx.translate(-W, 0);
+    sCtx.drawImage(bgCanvas, 0, 0, W, H);
+    sCtx.drawImage(drawCvs,  0, 0, W, H);
+    sCtx.drawImage(mainCvs,  0, 0, W, H);
+    sCtx.restore();
+
+    const a = document.createElement('a');
+    a.href = snap.toDataURL('image/png');
+    a.download = `neon-aura-${Date.now()}.png`;
+    a.click();
+    showToast('📷 SCREENSHOT SAVED');
+    playTone(1200, 'triangle', 0.25, 0.08);
+}
+
+// ══════════════════════════════════════════
+//  SCREEN RECORDING
+// ══════════════════════════════════════════
+async function toggleRecord() {
+    if (!isRecording) {
+        try {
+            // Capture all layers via a composite stream approach
+            const compositeCanvas = document.createElement('canvas');
+            compositeCanvas.width = W; compositeCanvas.height = H;
+            const cCtx = compositeCanvas.getContext('2d');
+
+            // Draw composite every frame
+            function drawComposite() {
+                if (!isRecording) return;
+                cCtx.clearRect(0,0,W,H);
+                cCtx.save();
+                cCtx.scale(-1,1); cCtx.translate(-W,0);
+                cCtx.drawImage(videoEl, 0, 0, W, H);
+                cCtx.drawImage(bgCanvas, 0, 0, W, H);
+                cCtx.drawImage(drawCvs,  0, 0, W, H);
+                cCtx.drawImage(mainCvs,  0, 0, W, H);
+                cCtx.restore();
+                requestAnimationFrame(drawComposite);
+            }
+
+            const stream = compositeCanvas.captureStream(30);
+
+            // Try to add audio
+            if (audioCtx) {
+                const dest = audioCtx.createMediaStreamDestination();
+                if (humGain) humGain.connect(dest);
+                dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+            }
+
+            mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
+            recChunks = [];
+            mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recChunks.push(e.data); };
+            mediaRecorder.onstop = saveRecording;
+            mediaRecorder.start(200);
+            isRecording = true;
+            drawComposite();
+
+            recStartTime = Date.now();
+            recInterval = setInterval(() => {
+                const s = Math.floor((Date.now()-recStartTime)/1000);
+                const m = String(Math.floor(s/60)).padStart(2,'0');
+                const sec = String(s%60).padStart(2,'0');
+                document.getElementById('recTime').textContent = `${m}:${sec}`;
+            }, 1000);
+
+            document.getElementById('recIndicator').classList.add('visible');
+            document.getElementById('btnRec').style.color = '#ff4040';
+            showToast('⏺ RECORDING…');
+        } catch(err) {
+            showToast('Recording unavailable on this browser');
+            console.error(err);
+        }
+    } else {
+        mediaRecorder.stop();
+        isRecording = false;
+        clearInterval(recInterval);
+        document.getElementById('recIndicator').classList.remove('visible');
+        document.getElementById('btnRec').style.color = '';
+        showToast('⏹ RECORDING SAVED');
+    }
+}
+
+function saveRecording() {
+    const blob = new Blob(recChunks, { type: 'video/webm' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `neon-aura-${Date.now()}.webm`;
+    a.click();
+    playTone(440, 'triangle', 0.2, 0.2);
+}
+
+// ══════════════════════════════════════════
+//  START BUTTON
+// ══════════════════════════════════════════
+document.getElementById('startBtn').addEventListener('click', () => {
+    const ov = document.getElementById('startOverlay');
+    ov.classList.add('hidden');
+    setTimeout(() => ov.remove(), 700);
+
+    document.getElementById('hud').classList.remove('hidden');
+    document.getElementById('toolbar').classList.remove('hidden');
+    document.getElementById('themes').classList.remove('hidden');
+
+    initAudio();
+    initMediaPipe();
+    requestAnimationFrame(renderLoop);
+    showToast('NEON AURA ACTIVE');
+});
+</script>
+</body>
+</html>
